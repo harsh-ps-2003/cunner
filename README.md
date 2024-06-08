@@ -9,13 +9,8 @@ The server is emiting transactions each N seconds that will be relayed through t
 # References
 While going through this [research paper](https://pure.tudelft.nl/ws/portalfiles/portal/132697278/Gromit_Benchmarking_the_Performance_and_Scalability_of_Blockchain_Systems.pdf) I got the inspiration to build this project!
 
-Start a simulation:
-```
-make simulation
-```
-
 ### Example
-There is a [engine example](https://github.com/harsh-ps-2003/cunner/blob/master/pkg/consensus/solo/engine.go) that should cover the idea and get you up to speed. 
+There is a [engine example](https://github.com/harsh-ps-2003/cunner/blob/main/consensus/example-engine.rs) that should cover the idea and get you up to speed.
 
 Also, an Avalanche consensus algorithm with its corresponding engine is implemented for fun!
 
