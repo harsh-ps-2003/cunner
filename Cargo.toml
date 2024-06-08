@@ -1,0 +1,16 @@
+[package]
+name = "cunner"
+version = "0.1.0"
+edition = "2021"
+authors = ["Harsh Pratap Singh <harshpratapsingh8210@gmail.com>"]
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4.1", features = ["derive"] }
+rand = "0.8.5"
+byteorder = "1.2.3"
+ring = "0.17.8"
+hex = "0.4.3"
+prost = "0.12.6"
+bytes = "1"
+ecdsa = "0.16.9" 
