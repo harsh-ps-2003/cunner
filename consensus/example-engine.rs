@@ -2,31 +2,16 @@
 This is an example implementation of consensus.Engine() interface.
 Serving as an example of how to create a custom consensus engine to use the Cunner framework.
 
-
-Engine Struct
-Represents the solo consensus engine. Key fields:
-blockGenerationInterval: Time between block proposals
-relayCh: Channel for relaying messages (blocks) to the server
-transactions: Buffer for pending transactions
-Configurate Method
-Called by the server on startup. Sets up the engine's private key and relay channel, then starts the run goroutine.
-run Method
-Goroutine that periodically proposes new blocks:
-1. Wait for blockGenerationInterval
-2. Create new block with pending transactions
-3. Send block message to relayCh
-4. Increment block index and clear transaction buffer
-AddTransaction Method
-Adds a new transaction to the pending buffer. Called by the server when it receives a transaction message.
-Integration with Consenter
 The solo engine is used as follows:
-1. Server is configured to use the solo engine:
-engine := solo.NewEngine(interval)
-srv := network.NewServer(cfg, engine)
-2. On startup, the server calls engine.Configurate, passing the relay channel and private key.
-3. The server calls engine.AddTransaction when it receives a new transaction message.
-4. The solo engine periodically proposes blocks and sends them to the server via the relay channel.
-5. The server broadcasts the block messages to connected peers.
+    1. Server is configured to use the solo engine:
+    ```
+        engine := solo.new_engine(time.Second * 5)
+        srv := network.new_server(cfg, engine)
+    ```
+    2. On startup, the server calls engine.Configurate, passing the relay channel and private key.
+    3. The server calls engine.AddTransaction when it receives a new transaction message.
+    4. The solo engine periodically proposes blocks and sends them to the server via the relay channel.
+    5. The server broadcasts the block messages to connected peers.
 */
 
 use tokio::time::{self, Duration, Instant};
@@ -39,15 +24,15 @@ use crate::messages::{Message, Transaction, NewBlock};
 
 /// Engine represents a single consensus engine. This is used as an implementation example.
 pub struct Engine {
-    block_generation_interval: Duration,
-    private_key: Option<Arc<SigningKey>>,
-    relay_channel: Option<mpsc::Sender<Message>>,
-    transactions: Arc<Mutex<Vec<Transaction>>>,
+    block_generation_interval: Duration, // Time between block proposals
+    private_key: Option<Arc<SigningKey>>, // Private key for signing blocks
+    relay_channel: Option<mpsc::Sender<Message>>, // Channel for relaying messages (blocks) to the server
+    transactions: Arc<Mutex<Vec<Transaction>>>, // Buffer for pending transactions
 }
 
 impl Engine {
     /// Returns a new solo consensus engine.
-    pub fn new(interval: Duration) -> Arc<Mutex<Self>> {
+    pub fn new_engine(interval: Duration) -> Arc<Mutex<Self>> {
         Arc::new(Mutex::new(Self {
             block_generation_interval: interval,
             private_key: None,
@@ -56,7 +41,7 @@ impl Engine {
         }))
     }
 
-    /// Configures the engine with a relay channel and a private key.
+    /// Configures the engine with a relay channel and a private key, called by server on startup!
     pub fn configurate(&mut self, relay_channel: mpsc::Sender<Message>, private_key: Arc<SigningKey>) {
         self.private_key = Some(private_key);
         self.relay_channel = Some(relay_channel);
@@ -68,24 +53,34 @@ impl Engine {
 
     /// The main loop that runs the engine, generating blocks at intervals.
     async fn run(&self) {
+        // create a new interval that will be used to generate blocks at the specified interval
         let mut interval = time::interval(self.block_generation_interval);
+        // the index of the block
         let mut index: u32 = 0;
 
         loop {
             interval.tick().await;
+            // get a copy of the transactions buffer
             let transactions = self.transactions.lock().unwrap().clone();
+            // create a new block with the transactions
             let block = NewBlock(index, transactions);
+            // if the relay channel is set, send the block to the server
             if let Some(ref relay_channel) = self.relay_channel {
                 relay_channel.send(Message::from_block(block)).await.unwrap();
             }
+            // increment the index
             index += 1;
+            // clear the transactions buffer
             self.transactions.lock().unwrap().clear();
         }
     }
 
-    /// Adds a transaction to the engine.
+    /// Adds a transaction to the engine. 
+    /// Adds a new transaction to the pending buffer. Called by the server when it receives a transaction message.
     pub fn add_transaction(&self, tx: Transaction) {
+        // get a mutable reference to the transactions buffer
         let mut transactions = self.transactions.lock().unwrap();
+        // add the transaction to the buffer
         transactions.push(tx);
     }
 }
