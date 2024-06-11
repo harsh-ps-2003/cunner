@@ -11,9 +11,9 @@ mod consensus {
 mod network {
     pub mod server;
     pub mod messages {
-        pub mod protobuf;
         pub mod message;
         pub mod messages;
+        pub mod protobuf;
     }
 }
 
@@ -22,10 +22,10 @@ mod storage {
 }
 
 use clap::{Parser, Subcommand, ValueEnum};
+use secp256k1::Secp256k1;
 use std::error::Error;
 use std::str::FromStr;
 use std::time::Duration;
-use secp256k1::Secp256k1;
 
 #[derive(Parser)]
 #[command(about = "Pluggable blockchain consensus simulation framework", long_about = None)]
@@ -35,7 +35,7 @@ struct Cli {
     command: Commands,
 }
 
-// how will the commands work, how will multiple nodes work! 
+// how will the commands work, how will multiple nodes work!
 #[derive(Subcommand)]
 enum Commands {
     /// Start a single cunner node
@@ -50,7 +50,6 @@ enum Commands {
         private_key: Option<String>,
         #[arg(long, help = "Consensus engine to use")]
         engine: Option<DefinedEngines>,
-
     },
 }
 
@@ -65,7 +64,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Node { tcp, seed, consensus, private_key, engine } => {
+        Commands::Node {
+            tcp,
+            seed,
+            consensus,
+            private_key,
+            engine,
+        } => {
             start_server(tcp, seed, consensus, private_key, engine)?;
         }
     }
@@ -73,7 +78,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn start_server(tcp: Option<u16>, seed: Option<String>, consensus: bool, private_key: Option<String>, engine: Option<DefinedEngines>) -> Result<(), Box<dyn Error>> {
+fn start_server(
+    tcp: Option<u16>,
+    seed: Option<String>,
+    consensus: bool,
+    private_key: Option<String>,
+    engine: Option<DefinedEngines>,
+) -> Result<(), Box<dyn Error>> {
     let mut engine_instance: Option<Box<dyn consensus::Engine>> = None;
 
     if consensus {
@@ -85,10 +96,12 @@ fn start_server(tcp: Option<u16>, seed: Option<String>, consensus: bool, private
         match engine {
             Some(DefinedEngines::Solo) => {
                 engine_instance = Some(Box::new(solo::Engine::new_engine(Duration::from_secs(15))));
-            },
+            }
             Some(DefinedEngines::Avalanche) => {
-                engine_instance = Some(Box::new(avalanche::Engine::new_engine(Duration::from_secs(15))));
-            },
+                engine_instance = Some(Box::new(avalanche::Engine::new_engine(
+                    Duration::from_secs(15),
+                )));
+            }
             // add more of your own!
             None => return Err("engine cannot be empty if running a consensus node".into()),
             _ => return Err("invalid engine option".into()),

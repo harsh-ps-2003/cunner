@@ -1,6 +1,6 @@
+use bytes::Bytes;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use bytes::Bytes;
 
 /// MemStore is an in-memory Store implementation for cunner framework.
 pub struct MemStore {
@@ -24,7 +24,10 @@ impl MemStore {
     /// Puts a key-value pair into the store.
     pub fn put_value_to_key(&self, key: &[u8], val: &[u8]) {
         let mut write_lock = self.lock.write().unwrap();
-        write_lock.insert(String::from_utf8_lossy(key).to_string(), Bytes::copy_from_slice(val));
+        write_lock.insert(
+            String::from_utf8_lossy(key).to_string(),
+            Bytes::copy_from_slice(val),
+        );
     }
 
     /// Checks if a key exists in the store.

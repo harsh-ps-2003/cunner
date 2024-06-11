@@ -1,8 +1,8 @@
+use bytes::Bytes;
 use prost::Message;
 use rand::Rng;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::sync::Once;
-use bytes::Bytes;
 
 static INIT: Once = Once::new();
 
@@ -50,9 +50,7 @@ impl Transaction {
     pub fn new_transaction() -> Transaction {
         init();
         let mut rng = rand::thread_rng();
-        Transaction {
-            nonce: rng.gen(),
-        }
+        Transaction { nonce: rng.gen() }
     }
 
     pub fn hash(&self) -> Vec<u8> {
