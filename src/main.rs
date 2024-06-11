@@ -12,6 +12,8 @@ mod network {
     pub mod server;
     pub mod messages {
         pub mod protobuf;
+        pub mod message;
+        pub mod messages;
     }
 }
 

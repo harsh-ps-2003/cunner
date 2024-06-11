@@ -2,7 +2,7 @@
 Libp2p uses protocol buffers extensively for message serialization
 */
 
-use prost::Message;
+use crate::network::messages::message::Message;
 use std::io::{self, Read, Write};
 use bytes::{Buf, BufMut};
 

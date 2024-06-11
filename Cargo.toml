@@ -12,6 +12,11 @@ byteorder = "1.2.3"
 ring = "0.17.8"
 hex = "0.4.3"
 prost = "0.12.6"
-bytes = "1"
-ecdsa = "0.16.9" 
+prost-types = "0.12.6"
+bytes = "1.6.0"
+ecdsa = { version = "0.16.9", features = ["signing"] }
 secp256k1 = "0.29.0"
+sha2 = "0.10"
+
+[build-dependencies]
+prost-build = "0.12.6"

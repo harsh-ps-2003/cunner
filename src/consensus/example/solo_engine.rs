@@ -17,6 +17,8 @@ use tokio::time::{self, Instant};
 use ecdsa::SigningKey;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
+use tokio::time::Duration;
+use crate::network::messages::message::{Message, Transaction};
 
 /// Engine represents a single consensus engine. This is used as an implementation example.
 pub struct Engine {
@@ -59,7 +61,7 @@ impl Engine {
             // get a copy of the transactions buffer
             let transactions = self.transactions.lock().unwrap().clone();
             // create a new block with the transactions
-            let block = NewBlock(index, transactions);
+            let block = new_block(index, transactions);
             // if the relay channel is set, send the block to the server
             if let Some(ref relay_channel) = self.relay_channel {
                 relay_channel.send(Message::from_block(block)).await.unwrap();
