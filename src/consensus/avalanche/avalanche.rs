@@ -25,8 +25,8 @@ use std::time::Duration;
 /// Hardcoded tuning parameters for the algorithm.
 pub const SAMPLES: usize = 4;
 pub const MAX_EPOCHS: u32 = 4;
-pub const TRESHOLD: f32 = 0.75;
-pub const CONVICTION_TRESHOLD: f32 = 0.75;
+pub const THRESHOLD: f32 = 0.75;
+pub const CONVICTION_THRESHOLD: f32 = 0.75;
 
 fn main() {
     let mut net = Network::new(10);
@@ -320,7 +320,7 @@ impl Node {
                 .count();
 
             // If responses meet the threshold criteria, the node updates its internal state and may decide on the transaction's status.
-            if n >= (TRESHOLD * SAMPLES as f32) as usize {
+            if n >= (THRESHOLD * SAMPLES as f32) as usize {
                 // Increment the confidence of the received status.
                 let cnt = state.incr_status(&msg.status);
                 // Get the confidence of our current status.
@@ -340,7 +340,7 @@ impl Node {
                     state.cnt += 1;
                     // We only accept the color (move to the next epoch) if the
                     // counter is higher the the conviction threshold.
-                    if state.cnt > (CONVICTION_TRESHOLD * SAMPLES as f32) as u32 {
+                    if state.cnt > (CONVICTION_THRESHOLD * SAMPLES as f32) as u32 {
                         state.advance();
                         if state.epoch == MAX_EPOCHS {
                             state.is_final = true;
