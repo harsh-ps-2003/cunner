@@ -5,26 +5,24 @@ services:
     build: .
     ports:
       - 5000:5000
-    command: "node -tcp 5000 -seed node_two:5001,node_three:5002,node_four:5003,node_five:5004"
+    command: "node -tcp 5000"
   node_two:
     build: .
     ports:
       - 5001:5001
-    command: "node -tcp 5001 -seed node_three:5002,node_four:5003,node_five:5004"
+    command: "node -tcp 5001"
   node_three:
     build: .
     ports:
       - 5002:5002
-    command: "node -tcp 5002 -seed node_four:5003,node_five:5004"
+    command: "node -tcp 5002"
   node_four:
     build: .
     ports:
       - 5003:5003
-    command: "node -tcp 5003 -seed node_five:5004"
+    command: "node -tcp 5003"
   node_five:
     build: .
     ports:
       - 5004:5004
     command: "node -tcp 5004"
-
-

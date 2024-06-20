@@ -18,7 +18,7 @@ impl MemStore {
     /// Gets a value by key. It returns Option<Bytes> to handle cases where the key might not exist.
     pub fn get_value_from_key(&self, key: &[u8]) -> Option<Bytes> {
         let read_lock = self.lock.read().unwrap();
-        read_lock.get(&String::from_utf8_lossy(key)).cloned()
+        read_lock.get(String::from_utf8_lossy(key).as_ref()).cloned()
     }
 
     /// Puts a key-value pair into the store.
@@ -33,7 +33,7 @@ impl MemStore {
     /// Checks if a key exists in the store.
     pub fn has_key(&self, key: &[u8]) -> bool {
         let read_lock = self.lock.read().unwrap();
-        read_lock.contains_key(&String::from_utf8_lossy(key))
+        read_lock.contains_key(String::from_utf8_lossy(key).as_ref())
     }
 
     /// Returns the number of elements in the store.
