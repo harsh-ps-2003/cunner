@@ -1,5 +1,4 @@
-use bytes::Bytes;
-use prost::Message;
+use crate::network::messages::message::{Transaction, Block, Header};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use std::sync::Once;
@@ -13,35 +12,16 @@ fn init() {
     });
 }
 
-#[derive(Message)]
-pub struct Block {
-    #[prost(message, required, tag = "1")]
-    pub header: Header,
-}
-
-#[derive(Message)]
-pub struct Header {
-    #[prost(uint32, tag = "1")]
-    pub index: u32,
-    #[prost(uint64, tag = "2")]
-    pub nonce: u64,
-}
-
-#[derive(Message)]
-pub struct Transaction {
-    #[prost(uint64, tag = "1")]
-    pub nonce: u64,
-}
-
 impl Block {
-    pub fn new_block(prev_index: u32) -> Block {
+    pub fn new_block(prev_index: u32, transactions: Vec<Transaction>) -> Block {
         init();
         let mut rng = rand::thread_rng();
         Block {
-            header: Header {
+            header: Some(Header {
                 index: prev_index + 1,
                 nonce: rng.gen(),
-            },
+            }),
+            transactions,
         }
     }
 }
@@ -54,11 +34,14 @@ impl Transaction {
     }
 
     pub fn hash(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        self.encode(&mut buf).unwrap();
+        let serialized = serde_json::to_vec(&self).expect("Failed to serialize transaction");
         let mut hasher = Sha256::new();
-        hasher.update(&buf);
+        hasher.update(serialized);
         let result = hasher.finalize();
-        result.to_vec()
+        let mut hasher = Sha256::new();
+        hasher.update(result);
+        let double_hashed = hasher.finalize();
+
+        double_hashed.to_vec()
     }
 }

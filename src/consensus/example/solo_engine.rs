@@ -2,11 +2,7 @@
 Serving as an example of how to create a custom consensus engine to use the Cunner framework.
 
 The solo engine is used as follows:
-    1. Server is configured to use the solo engine:
-    ```
-        engine := solo.new_engine(time.Second * 5)
-        server := network.new_server(configuration, engine)
-    ```
+    1. Server is configured to use the solo engine.
     2. On startup, the server calls engine.configurate, passing the relay channel and private key.
     3. The server calls engine.add_transaction when it receives a new transaction message.
     4. The solo engine periodically proposes blocks and sends them to the server via the relay channel.
@@ -18,8 +14,8 @@ use k256::Secp256k1;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tokio::time::Duration;
-use crate::network::messages::message::{Message, Transaction, Payload};
-use crate::network::messages::messages::Block;
+use crate::network::messages::message::{Message, Transaction, Block};
+use crate::network::messages::message::message::Payload;
 
 /// Engine represents a single consensus engine. This is used as an implementation example.
 pub struct Engine {
@@ -62,8 +58,7 @@ impl Engine {
             // get a copy of the transactions buffer
             let transactions = self.transactions.lock().unwrap().clone();
             // create a new block with the transactions
-            let block = Block::new_block(index);
-            block.Transactions = transactions;
+            let block = Block::new_block(index, transactions);
             // if the relay channel is set, send the block to the server
             if let Some(relay_channel) = &self.relay_channel {
                 let message = Message {
