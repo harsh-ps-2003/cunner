@@ -17,6 +17,8 @@ Messages can be quickly bootstrapped and implemented with `protobuf`.
 # References
 While going through this [research paper](https://pure.tudelft.nl/ws/portalfiles/portal/132697278/Gromit_Benchmarking_the_Performance_and_Scalability_of_Blockchain_Systems.pdf) I got the inspiration to build this project!
 
+Referred to [Hyperledger Blockchain Performance Metrics](https://8112310.fs1.hubspotusercontent-na1.net/hubfs/8112310/Hyperledger/Printables/HL_Whitepaper_Metrics_PDF_V1.01.pdf) for benchmarking metrics of consensus algorithm.
+
 ### Example
 There is a [engine example](https://github.com/harsh-ps-2003/cunner/tree/main/src/consensus/example) that should cover the idea and get you up to speed.
 

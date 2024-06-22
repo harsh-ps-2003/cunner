@@ -11,7 +11,7 @@ Steps Involved in a Consensus Algorithm
     Block Finalization
     Chain Synchronization
 
-Various consensus algorithms (PoW,PoS, PBFT, etc) can be implemented in the form of consensus engines.
+Various consensus algorithms (PoW,PoS, [PBFT](https://pmg.csail.mit.edu/papers/osdi99.pdf), etc) can be implemented in the form of consensus engines.
 
 Consensus engines are the core components that define the rules for transaction validation and block creation. This means developers can easily plug in different consensus algorithms and see how they perform. Each engine can handle the incoming transactions according to its specific algorithmic rules.
 
