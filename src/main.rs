@@ -92,9 +92,9 @@ fn start_peer(
             Some(DefinedEngines::Solo) => {
                 engine_instance = Arc::new(Mutex::new(Some(consensus::example::solo_engine::Engine::new_engine(Duration::from_secs(15)))));
             }
-            Some(DefinedEngines::Avalanche) => {
-                engine_instance = Arc::new(Mutex::new(Some(consensus::avalanche::engine::Engine::new_engine(Duration::from_secs(15)))));
-            }
+            // Some(DefinedEngines::Avalanche) => {
+            //     engine_instance = Arc::new(Mutex::new(Some(consensus::avalanche::engine::Engine::new_engine(Duration::from_secs(15)))));
+            // }
             // add more of your own!
             None => return Err("engine cannot be empty if running a consensus node".into()),
             _ => return Err("invalid engine option".into()),

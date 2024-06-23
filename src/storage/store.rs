@@ -1,8 +1,16 @@
+/*
+While the current implementation doesn't persist blocks, 
+the MemStore provides a simple key-value storage mechanism that could be 
+used to simulate blockchain state in memory. This is useful for testing and 
+simulating consensus algorithms without the overhead of actual disk storage.
+*/
+
 use bytes::Bytes;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
 /// MemStore is an in-memory Store implementation for cunner framework.
+/// Using an in-memory store allows for fast read and write operations, which is crucial for simulating high-throughput consensus algorithms.
 pub struct MemStore {
     lock: RwLock<HashMap<String, Bytes>>, // ensure thread safety and efficient read/write operations
 }
