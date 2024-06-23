@@ -36,16 +36,6 @@ impl Engine {
         }))
     }
 
-    /// Configures the engine with a relay channel and a private key, called by server on startup!
-    pub fn configurate(&mut self, relay_channel: mpsc::Sender<Message>, private_key: Arc<SigningKey<Secp256k1>>) {
-        self.private_key = Some(private_key);
-        self.relay_channel = Some(relay_channel);
-        let engine_clone = self.clone();
-        tokio::spawn(async move {
-            engine_clone.run().await;
-        });
-    }
-
     /// The main loop that runs the engine, generating blocks at intervals.
     async fn run(&self) {
         // create a new interval that will be used to generate blocks at the specified interval
@@ -63,7 +53,6 @@ impl Engine {
             if let Some(relay_channel) = &self.relay_channel {
                 let message = Message {
                     payload: Some(Payload::Block(block)),
-                    flag: 0
                 };
                 relay_channel.send(message).await.unwrap();
             }
@@ -74,6 +63,10 @@ impl Engine {
         }
     }
 
+/*
+No transaction validation for this engine!
+*/
+
     /// Adds a transaction to the engine. 
     /// Adds a new transaction to the pending buffer. Called by the server when it receives a transaction message.
     pub fn add_transaction(&self, tx: Transaction) {
@@ -81,6 +74,15 @@ impl Engine {
         let mut transactions = self.transactions.lock().unwrap();
         // add the transaction to the buffer
         transactions.push(tx);
+    }
+
+    // creates a new block from the set of valid transactions
+    pub fn get_new_block(&mut self) -> Option<Block> {
+        let transactions: Vec<Transaction> = self.transactions.lock().unwrap().drain(..).collect();
+        if transactions.is_empty() {
+            return None;
+        }
+        Some(Block::new_block(self.last_block_index, transactions))
     }
 }
 

@@ -1,12 +1,27 @@
-use futures::stream::StreamExt;
-use libp2p::{gossipsub, mdns, noise, swarm::NetworkBehaviour, swarm::SwarmEvent, tcp, yamux};
+use crate::{PeerConfig};
+use crate::consensus::engine::Engine;
+use crate::network::messages::message::{Message, Transaction};
+use crate::network::messages::message::message::Payload;
+use libp2p::{
+    gossipsub, mdns, tcp,
+    swarm::{NetworkBehaviour, SwarmEvent},
+};
+use libp2p::futures::StreamExt;
+use libp2p::noise;
+use libp2p::yamux;
+use crate::network::messages::protobuf::{decode_protobuf, encode_protobuf};
 use std::collections::{hash_map::DefaultHasher, HashSet};
 use std::error::Error;
 use std::hash::{Hash, Hasher};
-use tokio::{io, select, time::sleep};
 use std::time::Duration;
-use crate::{PeerConfig, DefinedEngines};
+use tokio::{io, select, time::sleep};
+use std::sync::{Arc, Mutex};
+use tokio::sync::mpsc;
+use futures::future::{self, BoxFuture};
+use rand::{thread_rng, Rng};
+use std::sync::atomic::{AtomicU64, Ordering};
 
+static TRANSACTION_COUNTER: AtomicU64 = AtomicU64::new(0);
 #[derive(NetworkBehaviour)]
 struct PeerBehaviour {
     gossipsub: gossipsub::Behaviour,
@@ -14,32 +29,70 @@ struct PeerBehaviour {
 }
 
 // sets up the libp2p swarm, subscribes to a gossipsub topic, and starts listening for incoming connections.
-pub async fn run_peer(configuration: PeerConfig, engine_instance: Option<Box<dyn Engine>>) -> Result<(), Box<dyn Error>> {
-    let mut swarm = create_swarm()?;
-    let topic = gossipsub::IdentTopic::new("test-net");
-    swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
+pub async fn run_peer(
+    configuration: PeerConfig,
+    mut engine_instance: Option<Box<dyn Engine>>,
+) -> Result<(), Box<dyn Error>> {
+    let (tx, mut rx) = mpsc::channel(32);
+    let swarm = Arc::new(Mutex::new(create_swarm()?));
+    let topic = Arc::new(gossipsub::IdentTopic::new("test-net"));
 
-    // if tcp address to listen is given, then use that otherwise use the default one!
-    swarm.listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+    swarm.lock().unwrap().behaviour_mut().gossipsub.subscribe(&topic)?;
+    swarm.lock().unwrap().listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
 
     let mut discovered_peers = HashSet::new();
-    let mut processed_messages = HashSet::new();
+    // let mut processed_transactions: HashSet<Transaction> = HashSet::new();
+
+    let engine = Arc::new(Mutex::new(engine_instance));
+    let engine_future = {
+        let swarm_clone = Arc::clone(&swarm);
+        let topic_clone = Arc::clone(&topic);
+        let engine_clone = Arc::clone(&engine);
+
+        tokio::spawn(async move {
+            loop {
+                let block = {
+                    // Only hold the lock for a short time
+                    let mut engine_guard = engine_clone.lock().unwrap();
+                    if let Some(engine) = engine_guard.as_mut() {
+                        engine.get_new_block()
+                    } else {
+                        break; // Exit the loop if there's no engine
+                    }
+                };
+    
+                if let Some(block) = block {
+                    let message = Message {
+                        payload: Some(Payload::Block(block)),
+                    };
+                    let encoded_message = encode_protobuf(&message).expect("Failed to encode message");
+                    if let Err(e) = swarm_clone.lock().unwrap().behaviour_mut().gossipsub.publish(topic_clone.as_ref().clone(), encoded_message) {
+                        println!("Failed to publish block: {:?}", e);
+                    }
+                }
+                tokio::time::sleep(Duration::from_secs(1)).await;
+            }
+        })
+    };
 
     loop {
+        let mut swarm_guard = swarm.lock().unwrap();
         select! {
-            event = swarm.select_next_some() => match event {
+            event = swarm_guard.select_next_some() => match event {
                 SwarmEvent::Behaviour(PeerBehaviourEvent::Mdns(mdns::Event::Discovered(list))) => {
+                    drop(swarm_guard);
                     for (peer_id, _multiaddr) in list {
                         println!("Discovered a new peer: {peer_id}");
                         discovered_peers.insert(peer_id);
-                        swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
+                        swarm.lock().unwrap().behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                     }
                 },
                 SwarmEvent::Behaviour(PeerBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
+                    drop(swarm_guard);
                     for (peer_id, _multiaddr) in list {
                         println!("Peer has gone offline: {peer_id}");
                         discovered_peers.remove(&peer_id);
-                        swarm.behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
+                        swarm.lock().unwrap().behaviour_mut().gossipsub.remove_explicit_peer(&peer_id);
                     }
                 },
                 SwarmEvent::Behaviour(PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message {
@@ -47,74 +100,111 @@ pub async fn run_peer(configuration: PeerConfig, engine_instance: Option<Box<dyn
                     message,
                     ..
                 })) => {
-                    let msg_str = String::from_utf8_lossy(&message.data);
-                    println!("Received message: '{}'", msg_str);
-
-                    // When a message is received, it's processed by the consensus engine and then relayed to other peers using the gossipsub protocol.
-                    if !processed_messages.contains(&message_id) {
-                        processed_messages.insert(message_id);
-                        // consensus engine has to process message
-                        consensus_engine.process_message(&msg_str);
-
-                        // Relay the message to other peers
-                        if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), message.data) {
-                            println!("Relay error: {e:?}");
-                        }
+                    drop(swarm_guard);
+                    match decode_protobuf(&message.data) {
+                        Ok(decoded_message) => {
+                            match decoded_message.payload {
+                                Some(Payload::Transaction(transaction)) => {
+                                    println!("Received transaction: {:?}", transaction);
+                                    tx.send(transaction.clone()).await.unwrap();
+                                },
+                                Some(Payload::Block(block)) => {
+                                    println!("Received block: {:?}", block);
+                                    // Process the block with the consensus engine
+                                },
+                                None => println!("Received message with empty payload"),
+                            }
+                        },
+                        Err(e) => println!("Failed to decode message: {:?}", e),
                     }
                 },
                 SwarmEvent::NewListenAddr { address, .. } => {
+                    drop(swarm_guard);
                     println!("Listening on {address}");
                 }
-                _ => {}
+                _ => {
+                    drop(swarm_guard);
+                }
             },
-            _ = sleep(Duration::from_secs(1)) => {
+            _ = sleep(Duration::from_secs(5)) => {
+                drop(swarm_guard);
                 if !discovered_peers.is_empty() {
-                    let message = format!("Message from peer: {}", ); // message about the transaction 
-                    if let Err(e) = swarm.behaviour_mut().gossipsub.publish(topic.clone(), message.as_bytes()) {
-                        match e {
-                            gossipsub::PublishError::InsufficientPeers => {
-                                println!("Insufficient peers to publish. Please open another terminal and run the binary to add more peers.");
-                            },
-                            _ => println!("Publish error: {e:?}"),
-                        }
+                    let transaction = new_transaction();
+                    tx.send(transaction.clone()).await.unwrap();
+
+                    let message = Message {
+                        payload: Some(Payload::Transaction(transaction)),
+                    };
+                    
+                    match encode_protobuf(&message) {
+                        Ok(encoded_message) => {
+                            if let Err(e) = swarm.lock().unwrap().behaviour_mut().gossipsub.publish(topic.as_ref().clone(), encoded_message) {
+                                println!("Failed to publish transaction: {:?}", e);
+                            }
+                        },
+                        Err(e) => println!("Failed to encode message: {:?}", e),
                     }
                 }
+            },
+            Some(transaction) = rx.recv() => {
+                drop(swarm_guard);
+                if let Some(engine) = &mut engine_instance {
+                    engine.add_transaction(transaction);
+                }
+            },
+            _ = engine_future => {
+                drop(swarm_guard);
+                println!("Engine future completed unexpectedly");
+                return Ok(());
+            }
         }
+    }
+
+    fn create_swarm() -> Result<libp2p::Swarm<PeerBehaviour>, Box<dyn Error>> {
+        let swarm = libp2p::SwarmBuilder::with_new_identity()
+            .with_tokio()
+            .with_tcp(
+                tcp::Config::default(),
+                noise::Config::new, // transport level protocol security
+                yamux::Config::default, // multiple sub-streams over single network connection
+            )?
+            .with_behaviour(|key| {
+                let message_id_fn = |message: &gossipsub::Message| {
+                    let mut s = DefaultHasher::new();
+                    message.data.hash(&mut s);
+                    gossipsub::MessageId::from(s.finish().to_string())
+                };
+
+                let gossipsub_config = gossipsub::ConfigBuilder::default()
+                    .heartbeat_interval(Duration::from_secs(10))
+                    .validation_mode(gossipsub::ValidationMode::Strict)
+                    .message_id_fn(message_id_fn)
+                    .build()
+                    .map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))?;
+
+                let gossipsub = gossipsub::Behaviour::new(
+                    gossipsub::MessageAuthenticity::Signed(key.clone()),
+                    gossipsub_config,
+                )?;
+
+                let mdns = mdns::tokio::Behaviour::new(
+                    mdns::Config::default(),
+                    key.public().to_peer_id(),
+                )?;
+                Ok(PeerBehaviour { gossipsub, mdns })
+            })?
+            .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
+            .build();
+
+        Ok(swarm)
     }
 }
 
-fn create_swarm() -> Result<libp2p::Swarm<PeerBehaviour>, Box<dyn Error>> {
-    let swarm = libp2p::SwarmBuilder::with_new_identity()
-        .with_tokio()
-        .with_tcp(
-            tcp::Config::default(),
-            noise::Config::new,
-            yamux::Config::default,
-        )?
-        .with_behaviour(|key| {
-            let message_id_fn = |message: &gossipsub::Message| {
-                let mut s = DefaultHasher::new();
-                message.data.hash(&mut s);
-                gossipsub::MessageId::from(s.finish().to_string())
-            };
-
-            let gossipsub_config = gossipsub::ConfigBuilder::default()
-                .heartbeat_interval(Duration::from_secs(10))
-                .validation_mode(gossipsub::ValidationMode::Strict)
-                .message_id_fn(message_id_fn)
-                .build()
-                .map_err(|msg| io::Error::new(io::ErrorKind::Other, msg))?;
-
-            let gossipsub = gossipsub::Behaviour::new(
-                gossipsub::MessageAuthenticity::Signed(key.clone()),
-                gossipsub_config,
-            )?;
-
-            let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), key.public().to_peer_id())?;
-            Ok(PeerBehaviour { gossipsub, mdns })
-        })?
-        .with_swarm_config(|c| c.with_idle_connection_timeout(Duration::from_secs(60)))
-        .build();
-
-    Ok(swarm)
+fn new_transaction() -> Transaction {
+    let mut rng = thread_rng();
+    let nonce = TRANSACTION_COUNTER.fetch_add(1, Ordering::SeqCst);
+    
+    Transaction {
+        nonce: nonce + rng.gen::<u64>(), // Combine counter and random number for extra uniqueness
+    }
 }
