@@ -28,6 +28,7 @@ use std::str::FromStr;
 use std::time::Duration;
 use tracing_subscriber::EnvFilter;
 use network::peer::run_peer;
+use std::sync::{Arc, Mutex};
 
 #[derive(Parser)]
 #[command(about = "Pluggable blockchain consensus simulation framework", long_about = None)]
@@ -85,7 +86,7 @@ fn start_peer(
     private_key: Option<String>,
     engine: Option<DefinedEngines>,
 ) -> Result<(), Box<dyn Error>> {
-    let mut engine_instance: Option<Box<dyn consensus::engine::Engine + Send>> = None;
+    let mut engine_instance: Arc<Mutex<Option<Box<dyn consensus::engine::Engine>>>> = Arc::new(Mutex::new(None));
 
         // why private key twice?t ensures that a private key is provided and generates one if not specified
         let private_key = private_key.ok_or("missing private key for consensus node")?;

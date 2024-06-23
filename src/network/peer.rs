@@ -31,11 +31,11 @@ struct PeerBehaviour {
 // sets up the libp2p swarm, subscribes to a gossipsub topic, and starts listening for incoming connections.
 pub async fn run_peer(
     configuration: PeerConfig,
-    mut engine_instance: Option<Box<dyn Engine>>,
+    mut engine_instance: Arc<Mutex<Option<Box<dyn Engine>>>>,
 ) -> Result<(), Box<dyn Error>> {
     let (tx, mut rx) = mpsc::channel(32);
     let swarm = Arc::new(Mutex::new(create_swarm()?));
-    let topic = Arc::new(gossipsub::IdentTopic::new("test-net"));
+    let topic = Arc::new(gossipsub::IdentTopic::new("cunner"));
 
     swarm.lock().unwrap().behaviour_mut().gossipsub.subscribe(&topic)?;
     swarm.lock().unwrap().listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
@@ -43,11 +43,10 @@ pub async fn run_peer(
     let mut discovered_peers = HashSet::new();
     // let mut processed_transactions: HashSet<Transaction> = HashSet::new();
 
-    let engine = Arc::new(Mutex::new(engine_instance));
     let engine_future = {
         let swarm_clone = Arc::clone(&swarm);
         let topic_clone = Arc::clone(&topic);
-        let engine_clone = Arc::clone(&engine);
+        let engine_clone = Arc::clone(&engine_instance);
 
         tokio::spawn(async move {
             loop {
@@ -74,6 +73,8 @@ pub async fn run_peer(
             }
         })
     };
+
+    let mut engine_future = Box::pin(engine_future);
 
     loop {
         let mut swarm_guard = swarm.lock().unwrap();
@@ -148,14 +149,15 @@ pub async fn run_peer(
             },
             Some(transaction) = rx.recv() => {
                 drop(swarm_guard);
-                if let Some(engine) = &mut engine_instance {
+                let mut engine_guard = engine_instance.lock().unwrap();
+                if let Some(engine) = engine_guard.as_mut() {
                     engine.add_transaction(transaction);
                 }
             },
-            _ = engine_future => {
+            result = &mut engine_future => {
                 drop(swarm_guard);
                 println!("Engine future completed unexpectedly");
-                return Ok(());
+                return result.map_err(|e| e.into());
             }
         }
     }
