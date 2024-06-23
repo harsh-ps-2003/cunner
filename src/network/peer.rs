@@ -1,14 +1,14 @@
-use crate::{PeerConfig};
+use crate::PeerConfig;
 use crate::consensus::engine::Engine;
 use crate::network::messages::message::{Message, Transaction};
 use crate::network::messages::message::message::Payload;
 use libp2p::{
     gossipsub, mdns, tcp,
     swarm::{NetworkBehaviour, SwarmEvent},
+    yamux,
+    noise,
+    futures::StreamExt
 };
-use libp2p::futures::StreamExt;
-use libp2p::noise;
-use libp2p::yamux;
 use crate::network::messages::protobuf::{decode_protobuf, encode_protobuf};
 use std::collections::{hash_map::DefaultHasher, HashSet};
 use std::error::Error;
@@ -17,11 +17,12 @@ use std::time::Duration;
 use tokio::{io, select, time::sleep};
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
-use futures::future::{self, BoxFuture};
 use rand::{thread_rng, Rng};
 use std::sync::atomic::{AtomicU64, Ordering};
+// use web3::signing;
 
 static TRANSACTION_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 #[derive(NetworkBehaviour)]
 struct PeerBehaviour {
     gossipsub: gossipsub::Behaviour,
@@ -130,7 +131,7 @@ pub async fn run_peer(
             _ = sleep(Duration::from_secs(5)) => {
                 drop(swarm_guard);
                 if !discovered_peers.is_empty() {
-                    let transaction = new_transaction();
+                    let transaction = new_transaction(configuration.private_key.as_ref());
                     tx.send(transaction.clone()).await.unwrap();
 
                     let message = Message {
@@ -202,11 +203,13 @@ pub async fn run_peer(
     }
 }
 
-fn new_transaction() -> Transaction {
+fn new_transaction(private_key: Option<&secp256k1::SecretKey>) -> Transaction {
     let mut rng = thread_rng();
     let nonce = TRANSACTION_COUNTER.fetch_add(1, Ordering::SeqCst);
     
     Transaction {
         nonce: nonce + rng.gen::<u64>(), // Combine counter and random number for extra uniqueness
     }
+
+    // sign the transaction with the private key according to the transaction that you have
 }

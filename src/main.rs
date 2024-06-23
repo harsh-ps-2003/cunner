@@ -22,9 +22,7 @@ mod storage {
 }
 
 use clap::{Parser, Subcommand, ValueEnum};
-use secp256k1::Secp256k1;
 use std::error::Error;
-use std::str::FromStr;
 use std::time::Duration;
 use tracing_subscriber::EnvFilter;
 use network::peer::run_peer;
@@ -46,7 +44,7 @@ enum Commands {
         #[arg(long, help = "TCP address to bind to")]
         tcp: Option<u16>,
         #[arg(long, help = "Private key for the node who is creating the transaction")]
-        private_key: Option<String>,
+        private_key: Option<secp256k1::SecretKey>,
         #[arg(long, help = "Consensus engine to use")]
         engine: Option<DefinedEngines>,
     },
@@ -83,22 +81,19 @@ fn main() -> Result<(), Box<dyn Error>> {
 // initializes the consensus engine based on the provided option, sets up the peer configuration, and starts the network operations.
 fn start_peer(
     tcp: Option<u16>,
-    private_key: Option<String>,
+    private_key: Option<secp256k1::SecretKey>,
     engine: Option<DefinedEngines>,
 ) -> Result<(), Box<dyn Error>> {
     let mut engine_instance: Arc<Mutex<Option<Box<dyn consensus::engine::Engine>>>> = Arc::new(Mutex::new(None));
 
-        // why private key twice?t ensures that a private key is provided and generates one if not specified
-        let private_key = private_key.ok_or("missing private key for consensus node")?;
-        let secp = Secp256k1::new();
-        let private_key = secp256k1::SecretKey::from_str(&private_key)?;
+    let private_key = private_key.ok_or("missing private key for consensus node")?;
 
         match engine {
             Some(DefinedEngines::Solo) => {
-                engine_instance = Some(Box::new(consensus::example::solo_engine::Engine::new_engine(Duration::from_secs(15))));
+                engine_instance = Arc::new(Mutex::new(Some(consensus::example::solo_engine::Engine::new_engine(Duration::from_secs(15)))));
             }
             Some(DefinedEngines::Avalanche) => {
-                engine_instance = Some(Box::new(consensus::avalanche::engine::Engine::new_engine(Duration::from_secs(15))));
+                engine_instance = Arc::new(Mutex::new(Some(consensus::avalanche::engine::Engine::new_engine(Duration::from_secs(15)))));
             }
             // add more of your own!
             None => return Err("engine cannot be empty if running a consensus node".into()),
