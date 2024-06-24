@@ -34,7 +34,11 @@ pub async fn run_peer(
     configuration: PeerConfig,
     mut engine_instance: Arc<Mutex<Option<Box<dyn Engine>>>>,
 ) -> Result<(), Box<dyn Error>> {
+
+    // creating a multi-producer, single-consumer channel for Transaction types.
+    // decouples the receipt of transactions from their processing, which can help manage load and ensure that network operations don't block transaction processing or vice versa.
     let (tx, mut rx) = mpsc::channel(32);
+
     let swarm = Arc::new(Mutex::new(create_swarm()?));
     let topic = Arc::new(gossipsub::IdentTopic::new("cunner"));
     let listen_address = configuration.tcp_listen_address
@@ -112,6 +116,7 @@ pub async fn run_peer(
                             match decoded_message.payload {
                                 Some(Payload::Transaction(transaction)) => {
                                     println!("Received transaction: {:?}", transaction);
+                                    // a transaction is received via gossipsub, sent to the channel
                                     tx.send(transaction.clone()).await.unwrap();
                                 },
                                 Some(Payload::Block(block)) => {
@@ -152,6 +157,7 @@ pub async fn run_peer(
                     }
                 }
             },
+            // listens for transactions from the channel
             Some(transaction) = rx.recv() => {
                 drop(swarm_guard);
                 let mut engine_guard = engine_instance.lock().unwrap();
