@@ -43,8 +43,8 @@ enum Commands {
     Node {
         #[arg(long, help = "TCP address to bind to")]
         tcp: Option<u16>,
-        #[arg(long, help = "Private key for the node who is creating the transaction")]
-        private_key: Option<secp256k1::SecretKey>,
+        // #[arg(long, help = "Private key for the node for creating the transaction")]
+        // private_key: Option<secp256k1::SecretKey>,
         #[arg(long, help = "Consensus engine to use")]
         engine: Option<DefinedEngines>,
     },
@@ -59,7 +59,7 @@ enum DefinedEngines {
 
 pub struct PeerConfig {
     tcp_listen_address: Option<u16>,
-    private_key: Option<secp256k1::SecretKey>,
+    // private_key: Option<secp256k1::SecretKey>,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -68,10 +68,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     match cli.command {
         Commands::Node {
             tcp,
-            private_key,
+            // private_key,
             engine,
         } => {
-            start_peer(tcp, private_key, engine)?;
+            start_peer(tcp, engine)?;
         }
     }
 
@@ -81,16 +81,16 @@ fn main() -> Result<(), Box<dyn Error>> {
 // initializes the consensus engine based on the provided option, sets up the peer configuration, and starts the network operations.
 fn start_peer(
     tcp: Option<u16>,
-    private_key: Option<secp256k1::SecretKey>,
+    // private_key: Option<secp256k1::SecretKey>,
     engine: Option<DefinedEngines>,
 ) -> Result<(), Box<dyn Error>> {
     let mut engine_instance: Arc<Mutex<Option<Box<dyn consensus::engine::Engine>>>> = Arc::new(Mutex::new(None));
 
-    let private_key = private_key.ok_or("missing private key for consensus node")?;
+    // let private_key = private_key.ok_or("missing private key for consensus node")?;
 
         match engine {
             Some(DefinedEngines::Example) => {
-                engine_instance = Arc::new(Mutex::new(Some(consensus::example::engine::Engine::new_engine(Duration::from_secs(15), Some(Arc::new(private_key))))));
+                engine_instance = Arc::new(Mutex::new(Some(consensus::example::engine::Engine::new_engine(Duration::from_secs(15)))));
             }
             // Some(DefinedEngines::Avalanche) => {
             //     engine_instance = Arc::new(Mutex::new(Some(consensus::avalanche::engine::Engine::new_engine(Duration::from_secs(15)))));
@@ -102,7 +102,7 @@ fn start_peer(
 
     let peer_configuration = PeerConfig {
         tcp_listen_address: Some(tcp.unwrap_or(0)),
-        private_key: Some(private_key),
+        // private_key: Some(private_key),
     };
 
     let _ = tracing_subscriber::fmt()

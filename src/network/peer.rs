@@ -140,7 +140,7 @@ pub async fn run_peer(
             _ = sleep(Duration::from_secs(5)) => {
                 drop(swarm_guard);
                 if !discovered_peers.is_empty() {
-                    let transaction = new_transaction(configuration.private_key.as_ref());
+                    let transaction = new_transaction();
                     tx.send(transaction.clone()).await.unwrap();
 
                     let message = Message {
@@ -213,7 +213,7 @@ pub async fn run_peer(
     }
 }
 
-fn new_transaction(private_key: Option<&secp256k1::SecretKey>) -> Transaction {
+fn new_transaction() -> Transaction {
     let mut rng = thread_rng();
     let nonce = TRANSACTION_COUNTER.fetch_add(1, Ordering::SeqCst);
     

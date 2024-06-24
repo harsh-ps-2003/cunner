@@ -6,7 +6,7 @@ use tokio::time::Duration;
 
 pub struct Engine {
     block_generation_interval: Duration,
-    private_key: Option<Arc<SecretKey>>,
+    // private_key: Option<Arc<SecretKey>>,
     transactions: Arc<Mutex<Vec<Transaction>>>,
     last_block_index: u32, // Added this field to keep track of the last block index
 }
@@ -28,10 +28,10 @@ impl EngineTrait for Engine {
 }
 
 impl Engine {
-    pub fn new_engine(interval: Duration, private_key: Option<Arc<SecretKey>>) -> Box<dyn EngineTrait> {
+    pub fn new_engine(interval: Duration) -> Box<dyn EngineTrait> {
         Box::new(Self {
             block_generation_interval: interval,
-            private_key: private_key,
+            // private_key: private_key,
             transactions: Arc::new(Mutex::new(vec![])),
             last_block_index: 0,
         })
@@ -46,7 +46,7 @@ impl Clone for Engine {
     fn clone(&self) -> Self {
         Self {
             block_generation_interval: self.block_generation_interval,
-            private_key: self.private_key.clone(),
+            // private_key: self.private_key.clone(),
             transactions: self.transactions.clone(),
             last_block_index: self.last_block_index,
         }
