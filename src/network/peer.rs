@@ -37,9 +37,13 @@ pub async fn run_peer(
     let (tx, mut rx) = mpsc::channel(32);
     let swarm = Arc::new(Mutex::new(create_swarm()?));
     let topic = Arc::new(gossipsub::IdentTopic::new("cunner"));
+    let listen_address = configuration.tcp_listen_address
+        .map(|port| format!("/ip4/0.0.0.0/tcp/{}", port))
+        .unwrap_or_else(|| "/ip4/0.0.0.0/tcp/0".to_string());
 
     swarm.lock().unwrap().behaviour_mut().gossipsub.subscribe(&topic)?;
-    swarm.lock().unwrap().listen_on("/ip4/0.0.0.0/tcp/0".parse()?)?;
+    // listen on default address if no port is specified
+    swarm.lock().unwrap().listen_on(listen_address.parse()?)?;
 
     let mut discovered_peers = HashSet::new();
     // let mut processed_transactions: HashSet<Transaction> = HashSet::new();
@@ -98,7 +102,7 @@ pub async fn run_peer(
                     }
                 },
                 SwarmEvent::Behaviour(PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message {
-                    message_id,
+                    message_id: _,
                     message,
                     ..
                 })) => {

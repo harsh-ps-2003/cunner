@@ -109,7 +109,11 @@ fn start_peer(
         .with_env_filter(EnvFilter::from_default_env())
         .try_init();
 
-    run_peer(peer_configuration, engine_instance);
+    tokio::runtime::Builder::new_multi_thread()
+    .enable_all()
+    .build()
+    .unwrap()
+    .block_on(run_peer(peer_configuration, engine_instance));
 
     Ok(())
 }
