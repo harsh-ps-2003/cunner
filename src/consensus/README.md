@@ -9,6 +9,7 @@ Steps Involved in a Consensus Algorithm
     Consensus Mechanism Execution - Different consensus mechanisms have different ways of reaching agreement in the network
     Block Validation
     Block Finalization
+    Incentive Distribution - In some consensus mechanisms, managing the distribution of rewards or penalties.
     Chain Synchronization
 
 Various consensus algorithms (PoW,PoS, [PBFT](https://pmg.csail.mit.edu/papers/osdi99.pdf), etc) can be implemented in the form of consensus engines.
@@ -19,4 +20,4 @@ I got inspiration of implementing consensus algorithms from this [Hyperledger bl
 
 *The Avalanche consensus algorithm is implemented [here](https://github.com/harsh-ps-2003/cunner/tree/main/src/consensus/avalanche)*
 
-The Paxos consensus algorithm can be implemented as an exercise reffering from [here](https://noghartt.dev/blog/paxos-made-simple-with-rust/)
+*The Paxos consensus algorithm can be implemented as an exercise reffering from [here](https://noghartt.dev/blog/paxos-made-simple-with-rust/)*

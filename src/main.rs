@@ -1,6 +1,6 @@
 mod consensus {
     pub mod example {
-        pub mod solo_engine;
+        pub mod engine;
     }
     pub mod engine;
     pub mod avalanche {
@@ -52,8 +52,8 @@ enum Commands {
 
 #[derive(Clone, ValueEnum)]
 enum DefinedEngines {
-    Solo,
-    Avalanche,
+    Example,
+    Avalanche, // TODO: engine not implemented
     // add more of your own!
 }
 
@@ -89,8 +89,8 @@ fn start_peer(
     let private_key = private_key.ok_or("missing private key for consensus node")?;
 
         match engine {
-            Some(DefinedEngines::Solo) => {
-                engine_instance = Arc::new(Mutex::new(Some(consensus::example::solo_engine::Engine::new_engine(Duration::from_secs(15)))));
+            Some(DefinedEngines::Example) => {
+                engine_instance = Arc::new(Mutex::new(Some(consensus::example::engine::Engine::new_engine(Duration::from_secs(15), Some(Arc::new(private_key))))));
             }
             // Some(DefinedEngines::Avalanche) => {
             //     engine_instance = Arc::new(Mutex::new(Some(consensus::avalanche::engine::Engine::new_engine(Duration::from_secs(15)))));
