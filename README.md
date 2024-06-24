@@ -12,7 +12,47 @@ The engine is emitting transactions each N seconds that will be relayed through 
 
 The consensus engine will decide on the validity of transactions, add them to the block. 
 
-Messages can be quickly bootstrapped and implemented with `protobuf`.
+**Messages can be quickly bootstrapped and implemented with `protobuf`**
+
+### Use!
+
+`cargo run -- node --tcp <port> --engine Example`
+
+in the terminal instances in which you want to run the node! 
+
+You should see the following :
+
+Terminal 1 :
+```
+Listening on /ip4/127.0.0.1/tcp/50281
+Listening on /ip4/172.23.33.85/tcp/50281
+Discovered a new peer: 12D3KooWBvoGNne46P3EqqaYCj8obDqyXBXDzb6W683uPdxx8P3H
+Discovered a new peer: 12D3KooWJGDRFt1DrFuW4QPFTEhpABjvotruSDvApSh1N62yrLFe
+Received transaction: Transaction { nonce: 577363141628466048 }
+Received transaction: Transaction { nonce: 11224783861343598983 }
+```
+
+Terminal 2:
+```
+Listening on /ip4/127.0.0.1/tcp/50282
+Listening on /ip4/172.23.33.85/tcp/50282
+Discovered a new peer: 12D3KooWSJJyJVszzaFNyiVDHnJTcsG1Yp3qJqe1ieHXGMPBCmCB
+Discovered a new peer: 12D3KooWJGDRFt1DrFuW4QPFTEhpABjvotruSDvApSh1N62yrLFe
+Received transaction: Transaction { nonce: 8002480234809478522 }
+Received transaction: Transaction { nonce: 11224783861343598983 }
+```
+
+Terminal 3:
+```
+Listening on /ip4/127.0.0.1/tcp/50285
+Listening on /ip4/172.23.33.85/tcp/50285
+Discovered a new peer: 12D3KooWSJJyJVszzaFNyiVDHnJTcsG1Yp3qJqe1ieHXGMPBCmCB
+Discovered a new peer: 12D3KooWBvoGNne46P3EqqaYCj8obDqyXBXDzb6W683uPdxx8P3H
+Received transaction: Transaction { nonce: 577363141628466048 }
+Received transaction: Transaction { nonce: 8002480234809478522 }
+```
+
+the 3 peers that you just setup are now in a peer-to-peer network locally!
 
 # References
 While going through this [research paper](https://pure.tudelft.nl/ws/portalfiles/portal/132697278/Gromit_Benchmarking_the_Performance_and_Scalability_of_Blockchain_Systems.pdf) I got the inspiration to build this project!
