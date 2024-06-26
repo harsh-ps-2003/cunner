@@ -2,7 +2,9 @@ use crate::consensus::engine::Engine as EngineTrait;
 use crate::network::messages::message::{Transaction, Block};
 use secp256k1::SecretKey;
 use std::sync::{Arc, Mutex};
+use std::future::Future;
 use tokio::time::Duration;
+use std::pin::Pin;
 
 pub struct Engine {
     block_generation_interval: Duration,
@@ -12,6 +14,34 @@ pub struct Engine {
 }
 
 impl EngineTrait for Engine {
+
+    // process the transactions by the engine
+    fn run<'a>(&'a self) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>> {
+        Box::pin(async move {
+            println!("Engine is processing transactions");
+            loop {
+                tokio::time::sleep(self.block_generation_interval).await;
+    
+                let new_block = {
+                    let mut transactions = self.transactions.lock().unwrap();
+                    if transactions.is_empty() {
+                        println!("No transactions to process");
+                        continue;
+                    }
+    
+                    for transaction in transactions.iter() {
+                        println!("Processing transaction: {:?}", transaction);
+                    }
+    
+                    let block_transactions = transactions.drain(..).collect();
+                    Block::new_block(self.last_block_index + 1, block_transactions)
+                };
+    
+                println!("Created new block: {:?}", new_block);
+            }
+        })
+    }
+
     fn add_transaction(&self, transaction: Transaction) {
         let mut transactions = self.transactions.lock().unwrap();
         transactions.push(transaction);
@@ -35,10 +65,6 @@ impl Engine {
             transactions: Arc::new(Mutex::new(vec![])),
             last_block_index: 0,
         })
-    }
-
-    pub async fn run(&self) {
-        // do simple thing here!
     }
 }
 

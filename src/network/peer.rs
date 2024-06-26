@@ -1,5 +1,6 @@
 use crate::PeerConfig;
 use crate::consensus::engine::Engine;
+use crate::consensus::example::engine::Engine as ExampleEngine;
 use crate::network::messages::message::{Message, Transaction};
 use crate::network::messages::message::message::Payload;
 use libp2p::{
@@ -19,6 +20,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use rand::{thread_rng, Rng};
 use std::sync::atomic::{AtomicU64, Ordering};
+use futures::pin_mut;
 // use web3::signing;
 
 static TRANSACTION_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -78,12 +80,34 @@ pub async fn run_peer(
                         println!("Failed to publish block: {:?}", e);
                     }
                 }
-                tokio::time::sleep(Duration::from_secs(1)).await;
+                tokio::time::sleep(Duration::from_secs(5)).await;
             }
         })
     };
 
     let mut engine_future = Box::pin(engine_future);
+
+    let _engine_run_future = {
+        let engine_clone = Arc::clone(&engine_instance);
+        tokio::spawn(async move {
+            loop {
+                let engine = {
+                    let guard = engine_clone.lock().unwrap();
+                    guard.as_ref().cloned()
+                };
+                if let Some(engine) = engine {
+                    tokio::select! {
+                        _ = engine.run() => {},
+                        _ = tokio::time::sleep(Duration::from_secs(60)) => {
+                            println!("Engine run timed out, restarting...");
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        })
+    };
 
     loop {
         let mut swarm_guard = swarm.lock().unwrap();
@@ -137,7 +161,7 @@ pub async fn run_peer(
                     drop(swarm_guard);
                 }
             },
-            _ = sleep(Duration::from_secs(1)) => {
+            _ = sleep(Duration::from_secs(5)) => {
                 drop(swarm_guard);
                 if !discovered_peers.is_empty() {
                     emit_transaction(tx.clone(), swarm.clone(), topic.clone()).await;
@@ -151,6 +175,7 @@ pub async fn run_peer(
                     engine.add_transaction(transaction.clone());
                     println!("Added transaction to engine: {:?}", transaction.clone());
                 }
+                // emit_transaction(tx.clone(), swarm.clone(), topic.clone()).await;
             },
             result = &mut engine_future => {
                 drop(swarm_guard);
@@ -200,6 +225,7 @@ pub async fn run_peer(
     }
 }
 
+// emits a new transaction to the network
 async fn emit_transaction(tx: mpsc::Sender<Transaction>, swarm: Arc<Mutex<libp2p::Swarm<PeerBehaviour>>>, topic: Arc<gossipsub::IdentTopic>) {
     let transaction = new_transaction();
     println!("Generated new transaction: {:?}", transaction);

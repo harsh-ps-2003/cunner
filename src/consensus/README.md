@@ -16,6 +16,21 @@ Various consensus algorithms (PoW,PoS, [PBFT](https://pmg.csail.mit.edu/papers/o
 
 Consensus engines are the core components that define the rules for transaction validation and block creation. This means developers can easily plug in different consensus algorithms and see how they perform. Each engine can handle the incoming transactions according to its specific algorithmic rules.
 
+If you only have 1 node (ran the binary in one terminal instance only), you will not have transactions to process. You will get :
+
+```
+Engine is processing transactions
+Listening on /ip4/127.0.0.1/tcp/58215
+Listening on /ip4/172.23.33.85/tcp/58215
+No transactions to process
+No transactions to process
+No transactions to process
+Engine run timed out, restarting...
+Engine is processing transactions
+No transactions to process
+No transactions to process
+```
+
 This suggests that the consensus engine is running independently of the peer connections and continues to process transactions and create blocks even when peers disconnect. Thus temporary unavailability of peer is not an issue, the peer will rejoin with the same ID!
 
 Peer 1 :
@@ -64,6 +79,8 @@ Added transaction to engine: Transaction { nonce: 4609187770577634261 }
 Received transaction: Transaction { nonce: 18152019857487357912 }
 Added transaction to engine: Transaction { nonce: 18152019857487357912 }
 ```
+
+### References 
 
 I got inspiration of implementing consensus algorithms from this [Hyperledger blog post](https://www.hyperledger.org/blog/2019/01/11/floating-the-sawtooth-raft-implementing-a-consensus-algorithm-in-rust)! 
 
