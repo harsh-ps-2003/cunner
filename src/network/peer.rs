@@ -137,24 +137,10 @@ pub async fn run_peer(
                     drop(swarm_guard);
                 }
             },
-            _ = sleep(Duration::from_secs(5)) => {
+            _ = sleep(Duration::from_secs(1)) => {
                 drop(swarm_guard);
                 if !discovered_peers.is_empty() {
-                    let transaction = new_transaction();
-                    tx.send(transaction.clone()).await.unwrap();
-
-                    let message = Message {
-                        payload: Some(Payload::Transaction(transaction)),
-                    };
-                    
-                    match encode_protobuf(&message) {
-                        Ok(encoded_message) => {
-                            if let Err(e) = swarm.lock().unwrap().behaviour_mut().gossipsub.publish(topic.as_ref().clone(), encoded_message) {
-                                println!("Failed to publish transaction: {:?}", e);
-                            }
-                        },
-                        Err(e) => println!("Failed to encode message: {:?}", e),
-                    }
+                    emit_transaction(tx.clone(), swarm.clone(), topic.clone()).await;
                 }
             },
             // listens for transactions from the channel
@@ -162,7 +148,8 @@ pub async fn run_peer(
                 drop(swarm_guard);
                 let mut engine_guard = engine_instance.lock().unwrap();
                 if let Some(engine) = engine_guard.as_mut() {
-                    engine.add_transaction(transaction);
+                    engine.add_transaction(transaction.clone());
+                    println!("Added transaction to engine: {:?}", transaction.clone());
                 }
             },
             result = &mut engine_future => {
@@ -210,6 +197,27 @@ pub async fn run_peer(
             .build();
 
         Ok(swarm)
+    }
+}
+
+async fn emit_transaction(tx: mpsc::Sender<Transaction>, swarm: Arc<Mutex<libp2p::Swarm<PeerBehaviour>>>, topic: Arc<gossipsub::IdentTopic>) {
+    let transaction = new_transaction();
+    println!("Generated new transaction: {:?}", transaction);
+    tx.send(transaction.clone()).await.unwrap();
+    println!("Sending transaction: {:?}", transaction);
+    let message = Message {
+        payload: Some(Payload::Transaction(transaction)),
+    };
+    println!("Attempting to publish transaction to network");
+    match encode_protobuf(&message) {
+        Ok(encoded_message) => {
+            if let Err(e) = swarm.lock().unwrap().behaviour_mut().gossipsub.publish(topic.as_ref().clone(), encoded_message) {
+                println!("Failed to publish transaction: {:?}", e);
+            } else {
+                println!("Successfully published transaction to network");
+            }
+        },
+        Err(e) => println!("Failed to encode message: {:?}", e),
     }
 }
 
