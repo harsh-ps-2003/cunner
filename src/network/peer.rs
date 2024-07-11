@@ -3,13 +3,16 @@ use crate::consensus::engine::Engine;
 use crate::consensus::example::engine::Engine as ExampleEngine;
 use crate::network::messages::message::{Message, Transaction};
 use crate::network::messages::message::message::Payload;
+use libp2p::Swarm;
 use libp2p::{
     gossipsub, mdns, tcp,
     swarm::{NetworkBehaviour, SwarmEvent},
     yamux,
     noise,
-    futures::StreamExt
+    futures::StreamExt,
+    PeerId
 };
+use crate::network::messages::message::Block;
 use crate::network::messages::protobuf::{decode_protobuf, encode_protobuf};
 use std::collections::{hash_map::DefaultHasher, HashSet};
 use std::error::Error;
@@ -20,10 +23,11 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use rand::{thread_rng, Rng};
 use std::sync::atomic::{AtomicU64, Ordering};
-use futures::pin_mut;
+use once_cell::sync::Lazy;
 // use web3::signing;
 
 static TRANSACTION_COUNTER: AtomicU64 = AtomicU64::new(0);
+static NETWORK_CONTEXT: Lazy<Mutex<Option<(Arc<Mutex<Swarm<PeerBehaviour>>>, Arc<gossipsub::IdentTopic>)>>> = Lazy::new(|| Mutex::new(None));
 
 #[derive(NetworkBehaviour)]
 struct PeerBehaviour {
@@ -34,7 +38,7 @@ struct PeerBehaviour {
 // sets up the libp2p swarm, subscribes to a gossipsub topic, and starts listening for incoming connections.
 pub async fn run_peer(
     configuration: PeerConfig,
-    mut engine_instance: Arc<Mutex<Option<Box<dyn Engine>>>>,
+    engine_instance: Arc<Mutex<Option<Box<dyn Engine>>>>,
 ) -> Result<(), Box<dyn Error>> {
 
     // creating a multi-producer, single-consumer channel for Transaction types.
@@ -43,6 +47,9 @@ pub async fn run_peer(
 
     let swarm = Arc::new(Mutex::new(create_swarm()?));
     let topic = Arc::new(gossipsub::IdentTopic::new("cunner"));
+
+    *NETWORK_CONTEXT.lock().unwrap() = Some((swarm.clone(), topic.clone()));
+
     let listen_address = configuration.tcp_listen_address
         .map(|port| format!("/ip4/0.0.0.0/tcp/{}", port))
         .unwrap_or_else(|| "/ip4/0.0.0.0/tcp/0".to_string());
@@ -53,39 +60,6 @@ pub async fn run_peer(
 
     let mut discovered_peers = HashSet::new();
     // let mut processed_transactions: HashSet<Transaction> = HashSet::new();
-
-    let engine_future = {
-        let swarm_clone = Arc::clone(&swarm);
-        let topic_clone = Arc::clone(&topic);
-        let engine_clone = Arc::clone(&engine_instance);
-
-        tokio::spawn(async move {
-            loop {
-                let block = {
-                    // Only hold the lock for a short time
-                    let mut engine_guard = engine_clone.lock().unwrap();
-                    if let Some(engine) = engine_guard.as_mut() {
-                        engine.get_new_block()
-                    } else {
-                        break; // Exit the loop if there's no engine
-                    }
-                };
-    
-                if let Some(block) = block {
-                    let message = Message {
-                        payload: Some(Payload::Block(block)),
-                    };
-                    let encoded_message = encode_protobuf(&message).expect("Failed to encode message");
-                    if let Err(e) = swarm_clone.lock().unwrap().behaviour_mut().gossipsub.publish(topic_clone.as_ref().clone(), encoded_message) {
-                        println!("Failed to publish block: {:?}", e);
-                    }
-                }
-                tokio::time::sleep(Duration::from_secs(5)).await;
-            }
-        })
-    };
-
-    let mut engine_future = Box::pin(engine_future);
 
     let _engine_run_future = {
         let engine_clone = Arc::clone(&engine_instance);
@@ -164,9 +138,10 @@ pub async fn run_peer(
             _ = sleep(Duration::from_secs(5)) => {
                 drop(swarm_guard);
                 if !discovered_peers.is_empty() {
-                    emit_transaction(tx.clone(), swarm.clone(), topic.clone()).await;
+                    emit_transaction(tx.clone(), swarm.clone(), topic.clone(), &discovered_peers).await;
                 }
             },
+
             // listens for transactions from the channel
             Some(transaction) = rx.recv() => {
                 drop(swarm_guard);
@@ -175,12 +150,6 @@ pub async fn run_peer(
                     engine.add_transaction(transaction.clone());
                     println!("Added transaction to engine: {:?}", transaction.clone());
                 }
-                // emit_transaction(tx.clone(), swarm.clone(), topic.clone()).await;
-            },
-            result = &mut engine_future => {
-                drop(swarm_guard);
-                println!("Engine future completed unexpectedly");
-                return result.map_err(|e| e.into());
             }
         }
     }
@@ -226,7 +195,17 @@ pub async fn run_peer(
 }
 
 // emits a new transaction to the network
-async fn emit_transaction(tx: mpsc::Sender<Transaction>, swarm: Arc<Mutex<libp2p::Swarm<PeerBehaviour>>>, topic: Arc<gossipsub::IdentTopic>) {
+async fn emit_transaction(
+    tx: mpsc::Sender<Transaction>, 
+    swarm: Arc<Mutex<libp2p::Swarm<PeerBehaviour>>>, 
+    topic: Arc<gossipsub::IdentTopic>,
+    discovered_peers: &HashSet<PeerId>
+) {
+    if discovered_peers.is_empty() {
+        println!("No peers discovered, skipping transaction emission");
+        return;
+    }
+
     let transaction = new_transaction();
     println!("Generated new transaction: {:?}", transaction);
     tx.send(transaction.clone()).await.unwrap();
@@ -244,6 +223,23 @@ async fn emit_transaction(tx: mpsc::Sender<Transaction>, swarm: Arc<Mutex<libp2p
             }
         },
         Err(e) => println!("Failed to encode message: {:?}", e),
+    }
+}
+
+pub fn publish_block(block: Block) {
+    let message = Message {
+        payload: Some(Payload::Block(block)),
+    };
+    let encoded_message = encode_protobuf(&message).expect("Failed to encode message");
+
+    if let Some((swarm, topic)) = NETWORK_CONTEXT.lock().unwrap().as_ref() {
+        if let Err(e) = swarm.lock().unwrap().behaviour_mut().gossipsub.publish(topic.as_ref().clone(), encoded_message) {
+            println!("Failed to publish block: {:?}", e);
+        } else {
+            println!("Successfully published block to network");
+        }
+    } else {
+        println!("Network context not initialized");
     }
 }
 

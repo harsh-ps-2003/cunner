@@ -18,7 +18,7 @@ pub mod message {
 }
 /// Header represents a very simple block header used for simulation.
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct Header {
     /// Index of the block.
     #[prost(uint32, tag = "1")]
@@ -41,7 +41,7 @@ pub struct Block {
 /// Transaction represents a very simple transaction used for simulation.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct Transaction {
     /// Nonce used to prevent hash collisions.
     #[prost(uint64, tag = "1")]

@@ -16,7 +16,7 @@ The consensus engine will decide on the validity of transactions, add them to th
 
 ### Use!
 
-`cargo run -- node --tcp <port> --engine Example`
+`cargo run -- node --tcp <port> --engine example`
 
 in the terminal instances in which you want to run the node! 
 

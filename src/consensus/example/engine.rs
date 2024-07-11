@@ -1,5 +1,6 @@
 use crate::consensus::engine::Engine as EngineTrait;
 use crate::network::messages::message::{Transaction, Block};
+use crate::network::peer::publish_block;
 use secp256k1::SecretKey;
 use std::sync::{Arc, Mutex};
 use std::future::Future;
@@ -38,6 +39,7 @@ impl EngineTrait for Engine {
                 };
     
                 println!("Created new block: {:?}", new_block);
+                publish_block(new_block);
             }
         })
     }
@@ -45,15 +47,6 @@ impl EngineTrait for Engine {
     fn add_transaction(&self, transaction: Transaction) {
         let mut transactions = self.transactions.lock().unwrap();
         transactions.push(transaction);
-    }
-
-    fn get_new_block(&mut self) -> Option<Block> {
-        let transactions: Vec<Transaction> = self.transactions.lock().unwrap().drain(..).collect();
-        if transactions.is_empty() {
-            return None;
-        }
-        self.last_block_index += 1;
-        Some(Block::new_block(self.last_block_index, transactions))
     }
 }
 

@@ -13,10 +13,7 @@ pub trait Engine: Send + Sync + DynClone {
     /// if the transaction is already seen, it should be ignored
     fn add_transaction(&self, transaction: Transaction);
 
-    /// relay the created block to the p2p network
-    fn get_new_block(&mut self) -> Option<Block>;
-
-    /// runs the engine on the transactions
+    /// runs the engine on the transactions and relays the generated blocks back to the network
     fn run<'a>(&'a self) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>;
 }
 
