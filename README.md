@@ -1,5 +1,7 @@
 # Cunner
-A pluggable blockchain consensus simulation framework written in Rust.
+A pluggable blockchain consensus simulation framework written in Rust. 
+
+*When developing with your consensus algorithm, you can use Cunner framework to test things locally! You can modify the nodes in the p2p however you want in the framework and test variety of simple things making the developer experience better.*
 
 Testing and benchmarking complex consensus algorithms in existing codebases can sometimes be a pain. Cunner is solving this problem by exposing a simple blockchain behind a peer-to-peer network where consensus engines can easily be plugged in and out, basically an ability to automatically deploy a blockchain network in repeatable conditions. It provides a platform for experimenting with new or modified consensus algorithms without the risk of impacting live environments. The computational and network load on each node can vary significantly depending on the consensus algorithm used. In some consensus models, nodes may have different roles which can lead to uneven load distribution among the nodes. Algorithms requiring frequent communication between nodes (e.g., for voting or proposing blocks) can increase network load. Algorithms with high computational demands (e.g., PoW) increase the processing load on each peer, affecting performance and scalability. Some algorithms might require nodes to maintain extensive records or logs, impacting storage resources.
 
