@@ -28,6 +28,8 @@ tracing = "0.1.33"
 dyn-clone = "1.0.17"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 once_cell = "1.19.0"
+thiserror = "1.0"
+log = "0.4"
 
 [build-dependencies]
 prost-build = "0.13.1"

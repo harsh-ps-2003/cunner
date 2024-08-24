@@ -1,4 +1,4 @@
-use crate::network::messages::message::{Transaction, Block, Header};
+use crate::network::messages::message::{Block, Header, Transaction};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use std::sync::Once;

@@ -1,7 +1,7 @@
 /*
-While the current implementation doesn't persist blocks, 
-the MemStore provides a simple key-value storage mechanism that could be 
-used to simulate blockchain state in memory. This is useful for testing and 
+While the current implementation doesn't persist blocks,
+the MemStore provides a simple key-value storage mechanism that could be
+used to simulate blockchain state in memory. This is useful for testing and
 simulating consensus algorithms without the overhead of actual disk storage.
 */
 
@@ -26,7 +26,9 @@ impl MemStore {
     /// Gets a value by key. It returns Option<Bytes> to handle cases where the key might not exist.
     pub fn get_value_from_key(&self, key: &[u8]) -> Option<Bytes> {
         let read_lock = self.lock.read().unwrap();
-        read_lock.get(String::from_utf8_lossy(key).as_ref()).cloned()
+        read_lock
+            .get(String::from_utf8_lossy(key).as_ref())
+            .cloned()
     }
 
     /// Puts a key-value pair into the store.
